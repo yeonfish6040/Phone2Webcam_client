@@ -54,7 +54,7 @@ public class CommunicationManager {
         }
     }
 
-    public void openStreaming(JLabel imgLabel) throws IOException {
+    public void openStreaming(JFrame frame, JLabel imgLabel) throws IOException {
         while (true) {
             try {
                 sendPacket(this.host, ("P2WC-request").getBytes(StandardCharsets.UTF_8));
@@ -64,12 +64,11 @@ public class CommunicationManager {
 
                 ByteArrayInputStream bis = new ByteArrayInputStream(dgramPacketRecv.data);
                 BufferedImage image = ImageIO.read(bis); bis.close();
-                File outputfile = new File("saved.jpeg");
-                ImageIO.write(image, "jpeg", outputfile);
 
-                System.out.println(outputfile.getAbsoluteFile());
-                image = resize(image, image.getWidth() / 5, image.getHeight() / 5);
+                image = resize(image, image.getWidth() / 2, image.getHeight() / 2);
                 imgLabel.setIcon(new ImageIcon(image));
+
+                frame.pack();
             }catch (Exception exception) {
                 exception.printStackTrace();
             }

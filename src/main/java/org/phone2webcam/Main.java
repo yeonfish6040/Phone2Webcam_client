@@ -52,6 +52,6 @@ public class Main {
             System.out.println("\nCannot find Phone2Webcam server");
         }
 
-        cManager.openStreaming(label);
+        cManager.openStreaming(frame, label);
     }
 }
