@@ -1,5 +1,6 @@
 package org.phone2webcam;
 
+import org.phone2webcam.custom.CustomObjectInputStream;
 import org.phone2webcam.custom.CustomPacket;
 import org.phone2webcam.custom.SequencedPacket;
 
@@ -10,7 +11,7 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
 
 public class CommunicationManager {
@@ -34,8 +35,8 @@ public class CommunicationManager {
 
         String data = "";
         try {
-            dgramPacketRecv = receivePacket(1024, 500);
-            data = (new String(dgramPacketRecv.data, StandardCharsets.UTF_8));
+            dgramPacketRecv = receivePacket(1024, 2000);
+            data = new String(dgramPacketRecv.data, StandardCharsets.UTF_8);
             if (data.contains("P2WC-registerResult_SUCCESS")) isRegistered = true; // P2WC-registerResult_SUCCESS|width|height
         } catch (SocketTimeoutException exception) {
         }
@@ -56,21 +57,29 @@ public class CommunicationManager {
     public void openStreaming(JLabel imgLabel) throws IOException {
         while (true) {
             try {
+                sendPacket(this.host, ("P2WC-request").getBytes(StandardCharsets.UTF_8));
+
                 CustomPacket dgramPacketRecv = receivePacket(1024, 1000);
                 System.out.println(dgramPacketRecv.data.length);
+
                 ByteArrayInputStream bis = new ByteArrayInputStream(dgramPacketRecv.data);
                 BufferedImage image = ImageIO.read(bis); bis.close();
+                File outputfile = new File("saved.jpeg");
+                ImageIO.write(image, "jpeg", outputfile);
+
+                System.out.println(outputfile.getAbsoluteFile());
                 image = resize(image, image.getWidth() / 5, image.getHeight() / 5);
                 imgLabel.setIcon(new ImageIcon(image));
             }catch (Exception exception) {
+                exception.printStackTrace();
             }
         }
     }
 
     private void sendPacket(InetAddress host, byte[] data) throws IOException {
 
-        int chunkSize = 1024;
-        int totalChunks = (int) Math.ceil((double) data.length / chunkSize);
+        int chunkSize = 1000;
+        int totalChunks = ((int) Math.ceil((double) data.length / chunkSize));
 
         for (int i = 0; i < totalChunks; i++) {
             int offset = i * chunkSize;
@@ -79,11 +88,11 @@ public class CommunicationManager {
             byte[] chunk = new byte[length];
             System.arraycopy(data, offset, chunk, 0, length);
 
-            byte[] sPacket = serialize(new SequencedPacket(i, chunk));
+            byte[] sPacket = new SequencedPacket(i, chunk).toSequencedPacketData();
             this.dgramSocket.send(new DatagramPacket(sPacket, sPacket.length, host, this.port));
         }
 
-        byte[] sPacket = serialize(new SequencedPacket(-1, null));
+        byte[] sPacket = new SequencedPacket((totalChunks+1)*-1, null).toSequencedPacketData();
         this.dgramSocket.send(new DatagramPacket(sPacket, sPacket.length, host, this.port));
     }
 
@@ -92,29 +101,41 @@ public class CommunicationManager {
         DatagramPacket dgramPacketRecv = new DatagramPacket(buffer, buffer.length);
 
         int timeoutTmp = this.dgramSocket.getSoTimeout();
+        int packetCount = -1;
+        int currentPacketCount = 0;
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         try {
             this.dgramSocket.setSoTimeout(timeout);
 
-            List<byte[]> data = new ArrayList<>();
+            Map<Integer, byte[]> data = new HashMap<>();
             while (true) {
                 this.dgramSocket.receive(dgramPacketRecv);
-                SequencedPacket sequencedPacket = deserialize(dgramPacketRecv.getData());
+                byte[] receivedData = new byte[dgramPacketRecv.getLength()];
+                System.arraycopy(dgramPacketRecv.getData(), 0, receivedData, 0, dgramPacketRecv.getLength());
+                currentPacketCount++;
 
-                if (sequencedPacket.getSequenceNumber() == -1) {
-                    break;
-                }
+                SequencedPacket sequencedPacket = new SequencedPacket(receivedData);
 
-                data.set(sequencedPacket.getSequenceNumber(), sequencedPacket.getData());
+                if (sequencedPacket.getSequenceNumber() < 0) {
+                    packetCount = sequencedPacket.getSequenceNumber()*-1;
+                }else
+                    data.put(sequencedPacket.getSequenceNumber(), sequencedPacket.getData());
+
+                if (packetCount == currentPacketCount) break;
             }
 
-            data.forEach(e -> {
-                byteArrayOutputStream.write(e, 0, e.length);
-            });
+            List<Integer> keySet = new ArrayList<>(data.keySet());
+            Collections.sort(keySet);
+
+            for (Integer i:keySet) {
+                byteArrayOutputStream.write(data.get(i), 0, data.get(i).length);
+            }
 
             this.dgramSocket.setSoTimeout(timeoutTmp);
-        } catch (Exception exception) {
+        } catch (SocketTimeoutException exception) {
             this.dgramSocket.setSoTimeout(timeoutTmp);
+        } catch (Exception exception) {
+            exception.printStackTrace();
         }
 
         CustomPacket cPacket = new CustomPacket();
@@ -123,20 +144,6 @@ public class CommunicationManager {
         byteArrayOutputStream.close();
 
         return cPacket;
-    }
-
-    private byte[] serialize(SequencedPacket sequencedPacket) throws IOException {
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream(); ObjectOutputStream oos = new ObjectOutputStream(bos)) {
-            oos.writeObject(sequencedPacket);
-            return bos.toByteArray();
-        }
-    }
-
-    private SequencedPacket deserialize(byte[] data) throws IOException, ClassNotFoundException {
-        try (ByteArrayInputStream bis = new ByteArrayInputStream(data);
-             ObjectInputStream ois = new ObjectInputStream(bis)) {
-            return (SequencedPacket) ois.readObject();
-        }
     }
 
     private static BufferedImage resize(BufferedImage inputImage, int width, int height) throws IOException {

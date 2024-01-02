@@ -19,7 +19,7 @@ public class NetworkScanner {
         this.scan_end = scan_end;
     }
 
-    public String[] scan() throws IOException {
+    public String[] scan() throws IOException, InterruptedException {
         String baseIp = getBaseIpAddress();
         if (baseIp != null) {
             return scanDevicesOnNetwork(baseIp);
@@ -28,7 +28,7 @@ public class NetworkScanner {
         }
     }
 
-    private String[] scanDevicesOnNetwork(String baseIp) throws IOException {
+    private String[] scanDevicesOnNetwork(String baseIp) throws IOException, InterruptedException {
         this.reachableHosts = new ArrayList<>();
         this.taskCompleted = new ArrayList<>();
 
@@ -43,6 +43,8 @@ public class NetworkScanner {
             System.out.flush();
 
             if (System.currentTimeMillis()-startTime > 10000) break;
+
+            Thread.sleep(100);
         }
         System.out.println();
 
@@ -83,7 +85,7 @@ class HostReachableTest implements Runnable {
     public static boolean isHostReachable(String host) {
         try {
             InetAddress address = InetAddress.getByName(host);
-            return address.isReachable(10000); // Timeout in milliseconds
+            return address.isReachable(5000); // Timeout in milliseconds
         } catch (Exception e) {
             return false;
         }
