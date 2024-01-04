@@ -1,8 +1,6 @@
-package org.phone2webcam;
+package org.yeonfish.phone2webcam;
 
 import javax.swing.*;
-import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.Arrays;

@@ -1,4 +1,4 @@
-package org.phone2webcam;
+package org.yeonfish.phone2webcam;
 
 import java.io.IOException;
 import java.net.InetAddress;
