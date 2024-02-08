@@ -15,11 +15,9 @@ public class CommunicationManager {
 
     private UDPTools udpTools;
     private InetAddress host;
-    private String myip;
     private int port;
 
-    public CommunicationManager(String myip, String host, int port) throws UnknownHostException, SocketException {
-        this.myip = myip;
+    public CommunicationManager(String host, int port) throws UnknownHostException, SocketException {
         this.port = port;
         this.udpTools = new UDPTools(this.port);
         this.host = InetAddress.getByName(host);
@@ -28,7 +26,7 @@ public class CommunicationManager {
     public String register() throws IOException {
         boolean isRegistered = false;
         CustomPacket dgramPacketRecv = null;
-        this.udpTools.sendPacket(this.host, this.port, ("P2WC-register_"+this.myip).getBytes(StandardCharsets.UTF_8));
+        this.udpTools.sendPacket(this.host, this.port, ("P2WC-register").getBytes(StandardCharsets.UTF_8));
 
         String data = "";
         try {

@@ -26,37 +26,37 @@ public class Main {
         while (true) {
             Stopwatch sw = new Stopwatch();
 
-            sw.Flag("Scan start");
+            sw.Flag("Network scan");
             NetworkScanner scanner = new NetworkScanner(0, 255);
             String[] reachable = scanner.scan();
-            sw.Flag("Scan finish");
+            sw.Flag();
 
             System.out.println("Reachable hosts: " + Arrays.toString(reachable));
 
-            String myip = InetAddress.getLocalHost().toString().split("/")[1];
-            System.out.println("myip: "+myip);
+            sw.Flag("Checking P2W server");
 
-            sw.Flag("Start checking P2W server");
+            String[] phone = {"192.168.219.105"};
 
             int i = 0;
             for (String host : reachable) {
                 System.out.write(("\rTaskLeft: "+String.valueOf((reachable.length)-i)).getBytes()); System.out.flush();
 
                 int port = 19001;
-                CommunicationManager cManagerTmp = new CommunicationManager(myip, host, port);
+                CommunicationManager cManagerTmp = new CommunicationManager(host, port);
                 String result = cManagerTmp.register();
                 if (result != null) {
                     cManager = cManagerTmp;
                     break;
                 }
 
+                sw.Flag();
+
                 i++;
+
+                System.out.println();
+                sw.printProfile();
             }
             System.out.println();
-
-            sw.Flag("End checking P2W server");
-
-            sw.printProfile();
 
             if (cManager != null) break;
 

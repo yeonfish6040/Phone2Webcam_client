@@ -83,9 +83,7 @@ public class Stopwatch {
 		int tmpChar = 0;
 		for (String key : keySet) {
 			if (keySet.indexOf(key) >= timeLine.size()) continue;
-			for (int i=0;i<key.length()/2;i++) System.out.print(" ");
-			System.out.print(timeLine.get(keySet.indexOf(key))+"ms");
-			for (int i=0;i<key.length()/2;i++) System.out.print(" ");
+			System.out.println(timeLine.get(keySet.indexOf(key))+"ms");
 		}
 		System.out.println();
 	}

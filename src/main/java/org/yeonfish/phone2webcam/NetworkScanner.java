@@ -1,11 +1,15 @@
 package org.yeonfish.phone2webcam;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.io.InputStreamReader;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class NetworkScanner {
     int scan_start;
@@ -21,6 +25,9 @@ public class NetworkScanner {
 
     public String[] scan() throws IOException, InterruptedException {
         String baseIp = getBaseIpAddress();
+
+        System.out.println(baseIp);
+
         if (baseIp != null) {
             return scanDevicesOnNetwork(baseIp);
         } else {
@@ -54,8 +61,23 @@ public class NetworkScanner {
         return reachableResult;
     }
 
-    private static String getBaseIpAddress() throws UnknownHostException {
-        String myip = InetAddress.getLocalHost().toString().split("/")[1];
+    private String getBaseIpAddress() throws IOException {
+        Matcher match;
+        while (true) {
+            Process traceRt;
+            if (System.getProperty("os.name").toLowerCase().contains("win"))
+                traceRt = Runtime.getRuntime().exec("tracert 8.8.8.8");
+            else traceRt = Runtime.getRuntime().exec("traceroute 8.8.8.8");
+            BufferedReader br = new BufferedReader(new InputStreamReader(traceRt.getInputStream()));
+
+            String ips = br.readLine();
+
+            match = Pattern.compile("(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)", Pattern.MULTILINE).matcher(ips);
+
+            if (match.find()) break;
+        }
+        String myip = match.group();
+
         return myip.split("\\.")[0] + "." + myip.split("\\.")[1] + "." + myip.split("\\.")[2];
     }
 }
