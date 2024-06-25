@@ -18,9 +18,9 @@ public class NetworkScanner {
     public List<String> reachableHosts;
     public List<Integer> taskCompleted;
 
-    public NetworkScanner(int scan_start, int scan_end) {
-        this.scan_start = scan_start;
-        this.scan_end = scan_end;
+    public NetworkScanner() {
+        this.scan_start = 0;
+        this.scan_end = 0;
     }
 
     public String[] scan() throws IOException, InterruptedException {
@@ -36,12 +36,21 @@ public class NetworkScanner {
     }
 
     private String[] scanDevicesOnNetwork(String baseIp) throws IOException, InterruptedException {
+        int increaseAmount = 0;
+        int increaseBitLength = 32-baseIp.length();
+        StringBuilder increaseBit = new StringBuilder();
+        increaseBit.append("1".repeat(increaseBitLength));
+        increaseAmount = Integer.parseInt(increaseBit.toString(), 2);
+        this.scan_end = increaseAmount;
+
         this.reachableHosts = new ArrayList<>();
         this.taskCompleted = new ArrayList<>();
 
-        for (int i = this.scan_start; i <= this.scan_end; i++) {
-            String host = baseIp + "." + i;
-            (new Thread(new HostReachableTest(host, this.reachableHosts, this.taskCompleted))).start();
+        for (int i = 0; i <= increaseAmount; i++) {
+            StringBuffer host = new StringBuffer(baseIp);
+            host.append("0".repeat(increaseBitLength-Integer.toBinaryString(i).length()));
+            host.append(Integer.toBinaryString(i));
+            (new Thread(new HostReachableTest(host.toString(), this.reachableHosts, this.taskCompleted))).start();
         }
 
         long startTime = System.currentTimeMillis();
@@ -61,7 +70,7 @@ public class NetworkScanner {
         return reachableResult;
     }
 
-    private String getBaseIpAddress() throws IOException {
+    public static String getBaseIpAddress() throws IOException {
         Matcher match;
         while (true) {
             Process traceRt;
@@ -73,12 +82,32 @@ public class NetworkScanner {
             String ips = br.readLine();
 
             match = Pattern.compile("(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)", Pattern.MULTILINE).matcher(ips);
-
             if (match.find()) break;
         }
         String myip = match.group();
+        NetworkInterface networkInterface = null;
+        Enumeration Interfaces = NetworkInterface.getNetworkInterfaces();
+        while(Interfaces.hasMoreElements() && networkInterface == null) {
+            NetworkInterface Interface = (NetworkInterface)Interfaces.nextElement();
+            Enumeration Addresses = Interface.getInetAddresses();
+            while(Addresses.hasMoreElements()) {
+                InetAddress Address = (InetAddress)Addresses.nextElement();
+                if (Address.getHostAddress().startsWith(myip.split("\\.")[0])) {
+                    networkInterface = Interface;
+                    break;
+                }
+            }
+        }
+        assert networkInterface != null;
+        short subnetMask = networkInterface.getInterfaceAddresses().get(1).getNetworkPrefixLength();
+        byte[] addr = networkInterface.getInterfaceAddresses().get(1).getAddress().getAddress();
 
-        return myip.split("\\.")[0] + "." + myip.split("\\.")[1] + "." + myip.split("\\.")[2];
+        StringBuilder addrBitString = new StringBuilder();
+        for (byte b : addr) {
+            addrBitString.append(String.format("%08d", Integer.parseInt(Integer.toBinaryString(b & 0xFF))));
+        }
+
+        return addrBitString.toString().substring(0, subnetMask);
     }
 }
 
@@ -96,7 +125,15 @@ class HostReachableTest implements Runnable {
 
     @Override
     public void run() {
-        if (isHostReachable(host)) {
+        StringBuffer ipv4Pretty = new StringBuffer();
+        for (int i=1;i<=32;i++) {
+            ipv4Pretty.append(host.charAt(i-1));
+            if (i%8==0 && i != 32) ipv4Pretty.append(".");
+        }
+        String[] byted = ipv4Pretty.toString().split("\\.");
+        host = Integer.parseInt(byted[0], 2) +"."+ Integer.parseInt(byted[1], 2) +"."+ Integer.parseInt(byted[2], 2) +"."+ Integer.parseInt(byted[3], 2);
+        byte[] addr = {(byte) Integer.parseInt(byted[0], 2), (byte) Integer.parseInt(byted[1], 2), (byte) Integer.parseInt(byted[2], 2), (byte) Integer.parseInt(byted[3], 2)};
+        if (isHostReachable(addr)) {
             hostList.add(host);
             taskCompleted.add(1);
         }else {
@@ -104,9 +141,9 @@ class HostReachableTest implements Runnable {
         }
     }
 
-    public static boolean isHostReachable(String host) {
+    public static boolean isHostReachable(byte[] host) {
         try {
-            InetAddress address = InetAddress.getByName(host);
+            InetAddress address = InetAddress.getByAddress(host);
             return address.isReachable(5000); // Timeout in milliseconds
         } catch (Exception e) {
             return false;

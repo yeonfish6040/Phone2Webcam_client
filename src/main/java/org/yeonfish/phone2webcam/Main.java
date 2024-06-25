@@ -1,16 +1,19 @@
 package org.yeonfish.phone2webcam;
 
 import org.yeonfish.phone2webcam.util.Stopwatch;
+import org.yeonfish.phone2webcam.util.UDPTools;
 
 import javax.swing.*;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
         // initialize
-        CommunicationManager cManager = null;
+        ArrayList<CommunicationManager> cManagers = new ArrayList<>();
 
         JFrame frame = new JFrame("Webcam");
         frame.setSize(400, 800);
@@ -21,47 +24,13 @@ public class Main {
         frame.setVisible(true);
 
 
-
+        CommunicationManager cManager = new CommunicationManager(19001);
         // find and return reachable hosts
         while (true) {
-            Stopwatch sw = new Stopwatch();
-
-            sw.Flag("Network scan");
-            NetworkScanner scanner = new NetworkScanner(0, 255);
-            String[] reachable = scanner.scan();
-            sw.Flag();
-
-            System.out.println("Reachable hosts: " + Arrays.toString(reachable));
-
-            sw.Flag("Checking P2W server");
-
-            String[] phone = {"192.168.219.105"};
-
-            int i = 0;
-            for (String host : reachable) {
-                System.out.write(("\rTaskLeft: "+String.valueOf((reachable.length)-i)).getBytes()); System.out.flush();
-
-                int port = 19001;
-                CommunicationManager cManagerTmp = new CommunicationManager(host, port);
-                String result = cManagerTmp.register();
-                if (result != null) {
-                    cManager = cManagerTmp;
-                    break;
-                }
-
-                sw.Flag();
-
-                i++;
-
-                System.out.println();
-                sw.printProfile();
-            }
+            HashMap<String, String> result = cManager.register();
+            if (result != null) break;
+            System.out.println("Cannot find Phone2Webcam server");
             System.out.println();
-
-            if (cManager != null) break;
-
-            System.out.println("\nCannot find Phone2Webcam server");
-
         }
 
         cManager.openStreaming(frame, label);

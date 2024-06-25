@@ -1,4 +1,7 @@
-package org.yeonfish.phone2webcam.custom;
+package org.yeonfish.phone2webcam.util;
+
+import org.yeonfish.phone2webcam.NetworkScanner;
+import org.yeonfish.phone2webcam.custom.CustomPacket;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -78,6 +81,7 @@ public class UDPTools {
             this.dgramSocket.setSoTimeout(timeoutTmp); // undo timeout
         } catch (SocketTimeoutException exception) {
             this.dgramSocket.setSoTimeout(timeoutTmp); // undo timeout
+            throw new SocketTimeoutException();
         } catch (Exception exception) {
             exception.printStackTrace();
         }
@@ -89,6 +93,31 @@ public class UDPTools {
         byteArrayOutputStream.close();
 
         return cPacket;
+    }
+
+    public static void broadcast(String broadcastMessage, int port) throws IOException {
+        StringBuilder host = new StringBuilder(NetworkScanner.getBaseIpAddress());
+        host.append("1".repeat(Math.max(0, 32 - broadcastMessage.length())));
+
+        StringBuffer ipv4Pretty = new StringBuffer();
+        for (int i=1;i<=32;i++) {
+            ipv4Pretty.append(host.charAt(i-1));
+            if (i%8==0 && i != 32) ipv4Pretty.append(".");
+        }
+        String[] byted = ipv4Pretty.toString().split("\\.");
+        ipv4Pretty = new StringBuffer(Integer.parseInt(byted[0], 2) +"."+ Integer.parseInt(byted[1], 2) +"."+ Integer.parseInt(byted[2], 2) +"."+ Integer.parseInt(byted[3], 2));
+        byte[] addr = {(byte) Integer.parseInt(byted[0], 2), (byte) Integer.parseInt(byted[1], 2), (byte) Integer.parseInt(byted[2], 2), (byte) Integer.parseInt(byted[3], 2)};
+
+        System.out.println("BroadCast IP: "+ipv4Pretty);
+
+        DatagramSocket socket = new DatagramSocket();
+        socket.setBroadcast(true);
+
+        byte[] buffer = broadcastMessage.getBytes();
+
+        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, InetAddress.getByAddress(addr), port);
+        socket.send(packet);
+        socket.close();
     }
 
     public void close() {
